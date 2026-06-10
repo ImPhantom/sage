@@ -137,8 +137,7 @@ Optional. Omitting this block entirely means mediamtx is never spawned and camer
 cameras:
   - id: canopy-cam    # unique name, becomes the RTSP stream path
     type: rpi_csi     # rpi_csi | usb | rtsp
-    params:
-      camera_id: 0
+    params: {}
 ```
 
 Each declared camera becomes an RTSP stream at `rtsp://<node-ip>:8554/<camera-id>`.
@@ -148,13 +147,10 @@ Each declared camera becomes an RTSP stream at `rtsp://<node-ip>:8554/<camera-id
 ```yaml
 - id: canopy-cam
   type: rpi_csi
-  params:
-    camera_id: 0   # required — rpicam index (0 for the first/only camera)
+  params: {}
 ```
 
-| param | required | description |
-|---|---|---|
-| `camera_id` | yes | libcamera device index. `0` for a single connected camera |
+No params required. mediamtx's `rpiCamera` source always uses the default libcamera device, so a single Pi Camera Module needs no additional configuration.
 
 Requires mediamtx built with `rpiCamera` support (the standard release includes it).
 

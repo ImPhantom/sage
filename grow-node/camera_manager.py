@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 import tempfile
 from pathlib import Path
@@ -12,18 +13,21 @@ from config import CameraConfig
 
 log = logging.getLogger(__name__)
 
-_GENERATED_CONFIG_PATH = "/tmp/mediamtx_generated.yaml"
-
 
 class CameraManager:
     def __init__(self, cameras: list[CameraConfig]) -> None:
         self._cameras = cameras
         self._proc: Optional[subprocess.Popen] = None  # type: ignore[type-arg]
+        self._config_path: Optional[str] = None
 
     def start(self) -> None:
-        config_path = _GENERATED_CONFIG_PATH
         mediamtx_cfg = self._generate_config()
-        Path(config_path).write_text(yaml.dump(mediamtx_cfg, default_flow_style=False))
+        fd, config_path = tempfile.mkstemp(prefix="mediamtx_", suffix=".yaml")
+        try:
+            os.write(fd, yaml.dump(mediamtx_cfg, default_flow_style=False).encode())
+        finally:
+            os.close(fd)
+        self._config_path = config_path
         log.info("mediamtx config written to %s (%d path(s))", config_path, len(self._cameras))
 
         self._proc = subprocess.Popen(["mediamtx", config_path])
@@ -33,17 +37,19 @@ class CameraManager:
             log.warning("mediamtx exited immediately — check config at %s", config_path)
 
     def stop(self) -> None:
-        if self._proc is None or self._proc.poll() is not None:
-            return
-        log.info("Stopping mediamtx (pid=%d)", self._proc.pid)
-        self._proc.terminate()
-        try:
-            self._proc.wait(timeout=5)
-            log.info("mediamtx stopped")
-        except subprocess.TimeoutExpired:
-            log.warning("mediamtx did not stop within 5s — sending SIGKILL")
-            self._proc.kill()
-            self._proc.wait()
+        if self._proc is not None and self._proc.poll() is None:
+            log.info("Stopping mediamtx (pid=%d)", self._proc.pid)
+            self._proc.terminate()
+            try:
+                self._proc.wait(timeout=5)
+                log.info("mediamtx stopped")
+            except subprocess.TimeoutExpired:
+                log.warning("mediamtx did not stop within 5s — sending SIGKILL")
+                self._proc.kill()
+                self._proc.wait()
+        if self._config_path and Path(self._config_path).exists():
+            Path(self._config_path).unlink()
+            self._config_path = None
 
     def _generate_config(self) -> dict:
         paths = {}
@@ -53,10 +59,7 @@ class CameraManager:
 
     def _build_path_entry(self, camera: CameraConfig) -> dict:
         if camera.type == "rpi_csi":
-            return {
-                "source": "rpiCamera",
-                "rpiCameraID": int(camera.params["camera_id"]),
-            }
+            return {"source": "rpiCamera"}
         if camera.type == "usb":
             device = camera.params["device"]
             rtsp_url = f"rtsp://localhost:8554/{camera.id}"
