@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --names \"infra,api,ui\" --prefix-colors \"cyan,yellow,green\" \"docker compose -f infra/docker-compose.yml up\" \"cd backend && .venv\\Scripts\\uvicorn main:app --reload\" \"cd frontend && bun run dev\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
