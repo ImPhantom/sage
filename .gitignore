@@ -2,6 +2,10 @@
 .env
 *.env
 
+# mediamtx — auto-generated TLS cert pair written to cwd on first run
+auto.crt
+auto.key
+
 # Python
 __pycache__/
 *.py[cod]

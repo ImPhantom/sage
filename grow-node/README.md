@@ -18,17 +18,20 @@ Each node runs independently — it keeps publishing if the backend is unreachab
 
 ```
 grow-node/
-├── config.yaml          # sensor and MQTT configuration
+├── config.yaml          # sensor, camera, and MQTT configuration
 ├── config.py            # loads and validates config.yaml
+├── camera_manager.py    # generates mediamtx config and manages the subprocess
 ├── drivers/
 │   ├── __init__.py      # driver registry (interface → class)
 │   ├── base.py          # BaseSensor ABC
+│   ├── ble_tp358.py     # ThermoPro TP358 via BLE passive scan
 │   ├── gpio_dht22.py    # DHT22 via adafruit-circuitpython-dht
+│   ├── i2c_sht31.py     # SHT31-D via I2C
 │   └── simulated.py     # randomised stub for dev/testing
 ├── publisher.py         # poll loop + MQTT publish
 ├── main.py              # entry point
 ├── requirements.txt     # paho-mqtt, PyYAML
-└── requirements-pi.txt  # + adafruit-circuitpython-dht, RPi.GPIO
+└── requirements-pi.txt  # + adafruit libs, bleak, RPi.GPIO
 ```
 
 ## Quick Start (dev machine, no hardware)
@@ -59,6 +62,17 @@ Expected output:
 
 ## Raspberry Pi Setup
 
+Sparse-checkout so you only pull the `grow-node/` directory:
+
+```sh
+git clone --filter=blob:none --sparse <repo-url> ai-botanist
+cd ai-botanist
+git sparse-checkout set grow-node
+cd grow-node
+```
+
+Install dependencies:
+
 ```sh
 pip install -r requirements-pi.txt
 ```
@@ -69,52 +83,36 @@ The GPIO user must be in the `gpio` group:
 sudo usermod -aG gpio $USER
 ```
 
-Set sensors back to `interface: gpio` in `config.yaml`, then run `python main.py`. To run on boot with systemd, see [Systemd Service](#systemd-service).
+Edit `config.yaml`, then run `python main.py`. To run on boot with systemd, see [Systemd Service](#systemd-service).
+
+## Camera Streaming (mediamtx)
+
+Camera support is optional. If no `cameras:` block is present in `config.yaml`, mediamtx is never spawned. If you do declare cameras, `mediamtx` must be on `PATH` before starting the node.
+
+**Linux (Raspberry Pi)**
+
+Find the latest release at https://github.com/bluenviron/mediamtx/releases and pick the right archive for your OS image:
+
+| DietPi image | Archive suffix |
+|---|---|
+| 64-bit (arm64) | `linux_arm64v8.tar.gz` |
+| 32-bit (armv7) | `linux_armv7.tar.gz` |
+
+```sh
+VERSION=1.12.3   # replace with the latest release
+ARCH=linux_armv7 # or linux_arm64v8
+wget https://github.com/bluenviron/mediamtx/releases/download/v${VERSION}/mediamtx_v${VERSION}_${ARCH}.tar.gz
+tar xf mediamtx_v${VERSION}_${ARCH}.tar.gz mediamtx
+sudo mv mediamtx /usr/local/bin/
+```
+
+**Windows (dev)**
+
+Download `mediamtx_vX.Y.Z_windows_amd64.zip` from the releases page, extract `mediamtx.exe`, and add its location to your `PATH`.
 
 ## Configuration Reference
 
-`config.yaml` fields:
-
-| Field | Required | Default | Description |
-|---|---|---|---|
-| `node_id` | yes | — | Unique node name; used in MQTT topic prefix |
-| `poll_interval` | no | `30` | Seconds between sensor reads |
-| `mqtt.broker` | yes | — | Broker hostname or IP |
-| `mqtt.port` | no | `1883` | Broker port |
-| `mqtt.client_id` | no | `node_id` | MQTT client identifier |
-| `sensors[].id` | yes | — | Unique sensor name; used in MQTT topic |
-| `sensors[].type` | yes | — | Sensor model (e.g. `dht22`, `simulated`) |
-| `sensors[].interface` | yes | — | Driver to use — see table below |
-| `sensors[].params` | no | `{}` | Driver-specific parameters |
-
-### Sensor Interfaces
-
-| `interface` | Driver | `params` keys |
-|---|---|---|
-| `gpio` | `GpioDht22Sensor` | `pin` (required), `retries` (default 3), `retry_delay` (default 0.5s) |
-| `simulated` | `SimulatedSensor` | `temp_min/max` (default 20–30), `humidity_min/max` (default 40–80) |
-
-Example with all params explicit:
-
-```yaml
-sensors:
-  - id: canopy
-    type: dht22
-    interface: gpio
-    params:
-      pin: 17
-      retries: 5
-      retry_delay: 0.3
-
-  - id: sim-ambient
-    type: simulated
-    interface: simulated
-    params:
-      temp_min: 22.0
-      temp_max: 28.0
-      humidity_min: 50.0
-      humidity_max: 70.0
-```
+See [CONFIG.md](CONFIG.md) for all fields, sensor interfaces, camera types, and a full example.
 
 ## MQTT Topics
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import sys
 
+from camera_manager import CameraManager
 from config import load_config
 from publisher import run_publish_loop
 
@@ -32,11 +33,21 @@ def main() -> None:
         sys.exit(1)
 
     log.info(
-        "Node '%s' — %d sensor(s), broker=%s:%d, interval=%ds",
-        config.node_id, len(config.sensors),
+        "Node '%s' — %d sensor(s), %d camera(s), broker=%s:%d, interval=%ds",
+        config.node_id, len(config.sensors), len(config.cameras),
         config.mqtt.broker, config.mqtt.port, config.poll_interval,
     )
-    run_publish_loop(config)
+
+    camera_manager = None
+    if config.cameras:
+        camera_manager = CameraManager(config.cameras)
+        camera_manager.start()
+
+    try:
+        run_publish_loop(config)
+    finally:
+        if camera_manager:
+            camera_manager.stop()
 
 
 if __name__ == "__main__":

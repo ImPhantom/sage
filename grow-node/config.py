@@ -22,11 +22,27 @@ class SensorConfig:
 
 
 @dataclass
+class CameraConfig:
+    id: str
+    type: str  # rpi_csi | usb | rtsp
+    params: dict[str, Any] = field(default_factory=dict)
+
+
+_CAMERA_TYPES = {"rpi_csi", "usb", "rtsp"}
+_CAMERA_REQUIRED_PARAMS: dict[str, str] = {
+    "rpi_csi": "camera_id",
+    "usb": "device",
+    "rtsp": "url",
+}
+
+
+@dataclass
 class NodeConfig:
     node_id: str
     mqtt: MqttConfig
     sensors: list[SensorConfig]
     poll_interval: int = 30
+    cameras: list[CameraConfig] = field(default_factory=list)
 
 
 def load_config(path: str = "config.yaml") -> NodeConfig:
@@ -67,6 +83,33 @@ def load_config(path: str = "config.yaml") -> NodeConfig:
             params=s.get("params") or {},
         ))
 
+    cameras: list[CameraConfig] = []
+    cameras_raw = raw.get("cameras") or []
+    if cameras_raw:
+        if not isinstance(cameras_raw, list):
+            raise ValueError("cameras must be a list")
+        seen_cam_ids: set[str] = set()
+        for i, c in enumerate(cameras_raw):
+            for key in ("id", "type"):
+                if not c.get(key):
+                    raise ValueError(f"cameras[{i}]: missing required field '{key}'")
+            cam_id = c["id"]
+            cam_type = c["type"]
+            if cam_id in seen_cam_ids:
+                raise ValueError(f"Duplicate camera id: '{cam_id}'")
+            seen_cam_ids.add(cam_id)
+            if cam_type not in _CAMERA_TYPES:
+                raise ValueError(
+                    f"cameras[{i}]: unknown type '{cam_type}' (must be one of: {', '.join(sorted(_CAMERA_TYPES))})"
+                )
+            params = c.get("params") or {}
+            required_param = _CAMERA_REQUIRED_PARAMS[cam_type]
+            if required_param not in params:
+                raise ValueError(
+                    f"cameras[{i}] (type={cam_type!r}): params.{required_param} is required"
+                )
+            cameras.append(CameraConfig(id=cam_id, type=cam_type, params=params))
+
     node_id = str(raw["node_id"])
     if not mqtt_cfg.client_id:
         mqtt_cfg.client_id = node_id
@@ -76,4 +119,5 @@ def load_config(path: str = "config.yaml") -> NodeConfig:
         mqtt=mqtt_cfg,
         sensors=sensors,
         poll_interval=int(raw.get("poll_interval", 30)),
+        cameras=cameras,
     )
