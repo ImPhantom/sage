@@ -1,0 +1,20 @@
+node_id: tent-1
+poll_interval: 30  # seconds between sensor reads
+
+mqtt:
+  broker: 127.0.0.1
+  port: 1883
+  # client_id defaults to node_id if omitted
+
+sensors:
+  - id: canopy
+    type: sht31d
+    interface: i2c
+    params:
+      address: 0x44
+
+  - id: floor
+    type: sht31d
+    interface: i2c
+    params:
+      address: 0x45

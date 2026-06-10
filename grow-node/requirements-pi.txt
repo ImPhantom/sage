@@ -1,0 +1,4 @@
+-r requirements.txt
+adafruit-circuitpython-dht>=3.7.0
+adafruit-circuitpython-sht31d>=2.3.0
+RPi.GPIO>=0.7.0
