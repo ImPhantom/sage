@@ -37,7 +37,7 @@ grows/{node_id}/camera/snapshot
 | Broker | Mosquitto |
 | Bridge | Telegraf (MQTT → InfluxDB) |
 | Database | InfluxDB |
-| Camera proxy | go2rtc (RTSP → HLS) |
+| Camera proxy | go2rtc (RTSP → WebRTC, temp) |
 | API | FastAPI (Python) |
 | Frontend | Vue 3 + Vite |
 | AI agent | Anthropic SDK (Python) |
@@ -49,4 +49,4 @@ grows/{node_id}/camera/snapshot
 | Backend language | Python | Matches node app, native Anthropic SDK |
 | Frontend | Vue + Vite | Developer familiarity |
 | No Grafana | Custom frontend | Required for AI agent integration |
-| Camera | go2rtc → HLS | RTSP not supported in browsers natively |
+| Camera | go2rtc → WebRTC (temporary) | HLS dropped: hls.js hammered the same segments hundreds of times per second and never displayed anything. WebRTC works locally but may fail from RPi on tricky networks (needs direct connectivity); HLS remains the longer-term fallback to revisit |

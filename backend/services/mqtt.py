@@ -1,10 +1,14 @@
 import asyncio
 import json
+import logging
 import os
+import time
 from datetime import datetime, timezone
 
 import paho.mqtt.client as paho
 from fastapi import WebSocket
+
+log = logging.getLogger(__name__)
 
 connected_websockets: set[WebSocket] = set()
 
@@ -49,12 +53,23 @@ def _on_message(client, userdata, msg) -> None:
 def start(loop: asyncio.AbstractEventLoop) -> None:
     global _client, _loop
     _loop = loop
-    host = os.environ.get("MQTT_HOST", "localhost")
+    host = os.environ.get("MQTT_BROKER", "localhost")
     port = int(os.environ.get("MQTT_PORT", "1883"))
+    log.info("Connecting to MQTT broker at %s:%s", host, port)
 
     _client = paho.Client()
     _client.on_message = _on_message
-    _client.connect(host, port)
+
+    for attempt in range(1, 11):
+        try:
+            _client.connect(host, port)
+            break
+        except OSError as exc:
+            if attempt == 10:
+                raise
+            log.warning("MQTT connect attempt %d/10 failed (%s), retrying in 3s…", attempt, exc)
+            time.sleep(3)
+
     _client.subscribe("grows/#")
     _client.loop_start()
 

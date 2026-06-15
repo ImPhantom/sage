@@ -1,4 +1,5 @@
 const BASE_URL = (import.meta.env.VITE_API_URL as string) ?? 'http://localhost:8000'
+const GO2RTC_URL = (import.meta.env.VITE_GO2RTC_URL as string) ?? 'http://localhost:1984'
 
 export interface SensorReading {
   time: string
@@ -13,9 +14,19 @@ export interface LatestReading {
   time: string
 }
 
+export interface Camera {
+  id: string
+  rtsp_url: string
+}
+
 export interface NodeInfo {
   node_id: string
   last_seen: string | null
+  cameras: Camera[]
+}
+
+export function go2rtcStreamUrl(nodeId: string, cameraId: string): string {
+  return `${GO2RTC_URL}/api/stream.m3u8?src=${nodeId}_${cameraId}`
 }
 
 export interface ChatMessage {

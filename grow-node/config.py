@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 
 import yaml
 
@@ -30,10 +30,14 @@ class CameraConfig:
 
 _CAMERA_TYPES = {"rpi_csi", "usb", "rtsp"}
 _CAMERA_REQUIRED_PARAMS: dict[str, str] = {
-    "rpi_csi": "camera_id",
     "usb": "device",
     "rtsp": "url",
 }
+
+
+@dataclass
+class BackendConfig:
+    url: str
 
 
 @dataclass
@@ -43,6 +47,7 @@ class NodeConfig:
     sensors: list[SensorConfig]
     poll_interval: int = 30
     cameras: list[CameraConfig] = field(default_factory=list)
+    backend: Optional[BackendConfig] = None
 
 
 def load_config(path: str = "config.yaml") -> NodeConfig:
@@ -103,12 +108,21 @@ def load_config(path: str = "config.yaml") -> NodeConfig:
                     f"cameras[{i}]: unknown type '{cam_type}' (must be one of: {', '.join(sorted(_CAMERA_TYPES))})"
                 )
             params = c.get("params") or {}
-            required_param = _CAMERA_REQUIRED_PARAMS[cam_type]
-            if required_param not in params:
+            required_param = _CAMERA_REQUIRED_PARAMS.get(cam_type)
+            if required_param and required_param not in params:
                 raise ValueError(
                     f"cameras[{i}] (type={cam_type!r}): params.{required_param} is required"
                 )
             cameras.append(CameraConfig(id=cam_id, type=cam_type, params=params))
+
+    backend_cfg: Optional[BackendConfig] = None
+    backend_raw = raw.get("backend")
+    if backend_raw:
+        if not isinstance(backend_raw, dict):
+            raise ValueError("backend must be a mapping")
+        url = str(backend_raw.get("url") or "").rstrip("/")
+        if url:
+            backend_cfg = BackendConfig(url=url)
 
     node_id = str(raw["node_id"])
     if not mqtt_cfg.client_id:
@@ -120,4 +134,5 @@ def load_config(path: str = "config.yaml") -> NodeConfig:
         sensors=sensors,
         poll_interval=int(raw.get("poll_interval", 30)),
         cameras=cameras,
+        backend=backend_cfg,
     )

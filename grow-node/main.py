@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import sys
+import threading
 
+from camera_announcer import announce_cameras
 from camera_manager import CameraManager
 from config import load_config
 from publisher import run_publish_loop
@@ -42,6 +45,14 @@ def main() -> None:
     if config.cameras:
         camera_manager = CameraManager(config.cameras)
         camera_manager.start()
+        if config.backend:
+            t = threading.Thread(
+                target=lambda: asyncio.run(announce_cameras(config)),
+                name="camera-announcer",
+                daemon=True,
+            )
+            t.start()
+            log.info("Camera announcer thread started")
 
     try:
         run_publish_loop(config)

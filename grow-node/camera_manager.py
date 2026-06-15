@@ -55,6 +55,7 @@ class CameraManager:
         paths = {}
         for cam in self._cameras:
             paths[cam.id] = self._build_path_entry(cam)
+        #return {"logLevel": "info", "readBufferCount": 2048, "paths": paths}
         return {"logLevel": "info", "paths": paths}
 
     def _build_path_entry(self, camera: CameraConfig) -> dict:

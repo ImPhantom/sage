@@ -30,6 +30,8 @@ poll_interval: 30
 mqtt:
   broker: 192.168.1.x
   port: 1883
+backend:
+  url: http://192.168.1.x:8000
 
 sensors:
   - id: canopy
@@ -47,9 +49,25 @@ sensors:
     interface: uart
     params:
       port: /dev/ttyS0    # future
+
+cameras:
+  - id: canopy-cam
+    type: rpi_csi        # Pi Camera Module via libcamera
+    params:
+      camera_id: 0
+  - id: usb-cam
+    type: usb
+    params:
+      device: /dev/video0
+  - id: ip-cam
+    type: rtsp           # re-stream an existing RTSP source
+    params:
+      url: rtsp://192.168.1.x/stream
 ```
 
 Driver-specific settings go under `params:` — passed to the driver constructor unchanged.
+
+Supported camera types: `rpi_csi`, `usb`, `rtsp`. No `cameras:` block means mediamtx is not spawned.
 
 ---
 
@@ -60,6 +78,21 @@ grows/{node_id}/{sensor_id}/humidity
 grows/{node_id}/{sensor_id}/co2
 grows/{node_id}/camera/snapshot
 ```
+
+---
+
+## Camera Announcement
+
+`config.yaml` is the single source of truth for cameras. grow-node manages the full camera lifecycle:
+
+1. On startup, generate a mediamtx config from declared cameras and spawn mediamtx as a sidecar process (independent of the sensor poll loop)
+2. Announce cameras to the backend via `POST /nodes/{node_id}/cameras`, providing each camera's mediamtx RTSP URL (e.g. `rtsp://{node_ip}:8554/{camera_id}`)
+3. The backend registers those URLs with go2rtc via go2rtc's HTTP API — no manual go2rtc config needed
+4. On clean shutdown (SIGTERM/SIGINT), terminate mediamtx
+
+**Resilience:** The announcement must retry on failure with backoff — the backend may not be reachable at startup. The backend is also responsible for re-registering streams with go2rtc on its own startup, in case go2rtc restarted and lost its dynamic config.
+
+The camera sidecar runs independently — a sensor poll failure must not affect running streams.
 
 ---
 
@@ -84,5 +117,8 @@ grows/{node_id}/camera/snapshot
 - [x] BLE driver for ThermoPro TP358 (passive scan, decode advertisement payload)
 - [x] Register BLE driver in `drivers/__init__.py`
 - [x] I2C SHT31-D driver (`drivers/i2c_sht31.py`) — 0x44/0x45 addresses
+- [x] Camera config parsing (`config.py`)
+- [x] mediamtx sidecar (`camera_manager.py`) — generate config, spawn process, clean shutdown
+- [x] Camera announcement to backend (`POST /nodes/{node_id}/cameras`) with retry/backoff (`camera_announcer.py`)
 - [ ] UART MH-Z19B CO2 driver
 - [ ] Multi-node test with second Pi

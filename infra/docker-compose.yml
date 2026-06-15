@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   mosquitto:
     image: eclipse-mosquitto:2
@@ -9,6 +7,12 @@ services:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
+    healthcheck:
+      test: ["CMD", "mosquitto_pub", "-h", "localhost", "-t", "healthcheck", "-m", "ping", "-q", "0"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     networks:
       - grows
     restart: unless-stopped
@@ -48,8 +52,42 @@ services:
     image: alexxit/go2rtc
     ports:
       - "1984:1984"
+      - "8555:8555/udp"
     volumes:
       - ./go2rtc/go2rtc.yaml:/config/go2rtc.yaml:ro
+    networks:
+      - grows
+    restart: unless-stopped
+
+  backend:
+    build: ../backend
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_ORG=${INFLUXDB_ORG}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET}
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
+      - MQTT_BROKER=mosquitto
+      - GO2RTC_URL=http://go2rtc:1984
+    depends_on:
+      influxdb:
+        condition: service_started
+      mosquitto:
+        condition: service_healthy
+      go2rtc:
+        condition: service_started
+    networks:
+      - grows
+    restart: unless-stopped
+
+  frontend:
+    build: ../frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
     networks:
       - grows
     restart: unless-stopped

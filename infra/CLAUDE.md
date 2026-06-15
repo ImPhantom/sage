@@ -35,9 +35,9 @@ infra/
 ---
 
 ## Implementation Checklist
-- [ ] `docker-compose.yml` with all services
-- [ ] `mosquitto.conf` — basic listener, no auth (local network only)
-- [ ] `telegraf.conf` — MQTT consumer + InfluxDB output + topic tag parsing
-- [ ] `go2rtc.yaml` — RTSP stream entry per camera
+- [x] `docker-compose.yml` with all services
+- [x] `mosquitto.conf` — basic listener, no auth (local network only)
+- [x] `telegraf.conf` — MQTT consumer + InfluxDB output + topic tag parsing
+- [x] `go2rtc.yaml` — no static streams; streams registered at runtime via backend → go2rtc HTTP API
 - [ ] Confirm data flows: node → Mosquitto → Telegraf → InfluxDB
-- [ ] Add backend + frontend services to Compose
+- [x] Add backend + frontend services to Compose

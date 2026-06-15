@@ -7,12 +7,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import readings, nodes, ws, agent
-from services import mqtt
+from services import mqtt, go2rtc
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     mqtt.start(asyncio.get_event_loop())
+    go2rtc.replay_registrations()
     yield
     mqtt.stop()
 

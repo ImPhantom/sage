@@ -1,2 +1,8 @@
-# Streams will be added here once camera RTSP URLs are known.
-streams: {}
+api:
+  listen: ":1984"
+  origin: "*"
+
+webrtc:
+  listen: ":8555/udp"
+  candidates:
+    - 127.0.0.1:8555
